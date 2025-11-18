@@ -1188,6 +1188,51 @@ app.get('/api/dashboard/stats-complete', async (req, res) => {
 
 console.log('✅ Rutas de estadísticas mejoradas configuradas correctamente');
 
+
+
+// ============================================
+// RUTA TEMPORAL PARA RESETEAR CONTRASEÑAS ADMIN
+// ⚠️ ELIMINAR DESPUÉS DE USARLA
+// ============================================
+app.post('/api/admin/reset-passwords', async (req, res) => {
+  try {
+    const admins = [
+      { email: 'jesus@loyola.com', password: 'Jesus123' },
+      { email: 'darwin@loyola.com', password: 'Darwin123' },
+      { email: 'mel@loyola.com', password: 'Mel123' },
+      { email: 'carlos@loyola.com', password: 'Carlos123' }
+    ];
+
+    for (const admin of admins) {
+      const hashedPassword = await bcrypt.hash(admin.password, 10);
+      
+      await pool.query(
+        'UPDATE users SET password = $1 WHERE email = $2',
+        [hashedPassword, admin.email]
+      );
+      
+      console.log(`✅ Contraseña actualizada para: ${admin.email}`);
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Contraseñas admin actualizadas correctamente'
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+
+
+
+
+
+
 // Iniciar servidor
 const PORT = process.env.PORT || 5000;
 
