@@ -90,27 +90,9 @@ app.use((req, res, next) => {
 });
 
 // ================================
-// MULTER CONFIGURACIÓN
+// CLOUDINARY CONFIGURACIÓN
 // ================================
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    if (extname && mimetype) return cb(null, true);
-    cb(new Error('Solo se permiten imágenes (jpeg, jpg, png, webp)'));
-  }
-});
+const { upload } = require('./config/cloudinary');
 
 // ================================
 // RUTAS DE AUTENTICACIÓN
@@ -287,7 +269,7 @@ app.get('/api/products/:id', async (req, res) => {
   }
 });
 
-// Reemplaza la sección de crear producto (POST /api/products)
+// Crear producto con Cloudinary
 app.post('/api/products', upload.array('images', 5), async (req, res) => {
   try {
     const {
@@ -295,9 +277,8 @@ app.post('/api/products', upload.array('images', 5), async (req, res) => {
       sizes, colors, stock, sku, badge, features, specifications
     } = req.body;
 
-    // IMPORTANTE: Construir URLs completas para las imágenes
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const images = req.files.map(file => `${baseUrl}/uploads/${file.filename}`);
+    // Las URLs de Cloudinary vienen directamente en req.files
+    const images = req.files.map(file => file.path);
 
     const result = await pool.query(
       `INSERT INTO products (
@@ -349,13 +330,33 @@ app.put('/api/products/:id', upload.array('images', 5), async (req, res) => {
       specifications, existingImages
     } = req.body;
 
-    // Combinar imágenes existentes con las nuevas
-    let images = existingImages ? JSON.parse(existingImages) : [];
-    if (req.files && req.files.length > 0) {
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const newImages = req.files.map(file => `${baseUrl}/uploads/${file.filename}`);
-      images = [...images, ...newImages];
-    }
+// Combinar imágenes existentes con las nuevas (Cloudinary)
+let images = existingImages ? JSON.parse(existingImages) : [];
+if (req.files && req.files.length > 0) {
+  const newImages = req.files.map(file => file.path);
+  images = [...images, ...newImages];
+}
+```
+
+---
+
+### **PASO 5: Agregar variables de entorno en Render**
+
+1. Ve a [dashboard.render.com](https://dashboard.render.com)
+2. Click en tu Web Service **"stylehub-backend"**
+3. Ve a **"Environment"** en el menú izquierdo
+4. Click en **"Add Environment Variable"**
+
+Agrega estas **3 variables** (una por una):
+```
+Key: CLOUDINARY_CLOUD_NAME
+Value: [do8pf3wh9]
+
+Key: CLOUDINARY_API_KEY
+Value: [126979415847751]
+
+Key: CLOUDINARY_API_SECRET
+Value: [jAwjcnrdngMSD3oKEnqN5t1zAGc]
 
     const result = await pool.query(
       `UPDATE products SET
