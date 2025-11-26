@@ -22,29 +22,21 @@ console.log('🔗 Conectando a base de datos...');
 console.log('Entorno:', process.env.NODE_ENV || 'development');
 
 // ================================
-// FUNCIONES DE ADMIN
+// FUNCIONES DE ADMIN - VERSIÓN CORREGIDA
 // ================================
-async function hashExistingPasswords() {
-  const users = await pool.query('SELECT id, password FROM users');
-  for (const user of users.rows) {
-    if (!user.password.startsWith('$2b$')) {
-      const hashed = await bcrypt.hash(user.password, 10);
-      await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, user.id]);
-      console.log(`Contraseña del usuario ${user.id} actualizada a hash.`);
-    }
-  }
-  console.log('✅ Todos los usuarios existentes han sido hashados.');
-}
-
 async function createAdmin(name, email, password) {
   try {
+    // Verificar si el usuario ya existe
     const existing = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (existing.rows.length > 0) {
-      console.log(`⚠️ Usuario admin ya existe: ${email}`);
+      console.log(`⚠️ Usuario ya existe: ${email}`);
       return;
     }
 
+    // Hashear la contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Insertar nuevo usuario
     await pool.query(
       `INSERT INTO users (name, email, password, role, avatar, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
@@ -52,23 +44,27 @@ async function createAdmin(name, email, password) {
         name,
         email,
         hashedPassword,
-        'admin',
+        'admin', // Rol de administrador
         `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=000000&color=fff`
       ]
     );
     console.log(`✅ Usuario admin creado: ${email}`);
   } catch (error) {
-    console.error(`Error creando admin ${email}:`, error);
+    console.error(`❌ Error creando admin ${email}:`, error.message);
   }
 }
 
 async function setupAdmins() {
-  await hashExistingPasswords();
-
-  await createAdmin('Jesus', 'jesus@loyola.com', 'Jesus123');
-  await createAdmin('Darwin', 'darwin@loyola.com', 'Darwin123');
-  await createAdmin('Mel', 'mel@loyola.com', 'Mel123');
+  console.log('👥 Creando usuarios administradores...');
+  
+  // Crear los usuarios específicos que necesitas
   await createAdmin('Carlos', 'carlos@loyola.com', 'Carlos123');
+  await createAdmin('Darwin', 'darwin@loyola.com', 'Darwin123');
+  await createAdmin('Jesus', 'jesus@loyola.com', 'Jesus123');
+  await createAdmin('Mel', 'mel@loyola.com', 'Mel123');
+  await createAdmin('Admin Principal', 'admin@loyola.com', 'Admin123');
+  
+  console.log('✅ Todos los usuarios admin han sido creados/verificados');
 }
 
 // Ejecutar setup al iniciar el backend
@@ -427,6 +423,15 @@ app.delete('/api/products/:id', async (req, res) => {
     });
   }
 });
+
+// ============================================
+// RUTAS DE PRONÓSTICO
+// ============================================
+const forecastRoutes = require('./routes/forecast');
+app.use('/api/forecast', forecastRoutes);
+console.log('✅ Rutas de pronóstico configuradas');
+
+
 
 // ============================================
 // ESTADÍSTICAS DEL DASHBOARD
